@@ -35,19 +35,25 @@ func dataSourceUserRead(ctx context.Context, d *schema.ResourceData, m interface
 
 	var user *slack.User
 	if name, ok := d.GetOk("name"); ok {
-		u, err := searchByName(ctx, name.(string), client)
+		operation := func() (interface{}, error) {
+			return searchByName(ctx, name.(string), client)
+		}
+		u, err := retryOnRateLimit(operation)
 		if err != nil {
 			return diag.FromErr(fmt.Errorf("not found %s: %w", name.(string), err))
 		}
-		user = u
+		user = u.(*slack.User)
 	}
 
 	if email, ok := d.GetOk("email"); ok {
-		u, err := client.GetUserByEmailContext(ctx, email.(string))
+		operation := func() (interface{}, error) {
+			return client.GetUserByEmailContext(ctx, email.(string))
+		}
+		u, err := retryOnRateLimit(operation)
 		if err != nil {
 			return diag.FromErr(fmt.Errorf("not found %s: %w", email.(string), err))
 		}
-		user = u
+		user = u.(*slack.User)
 	}
 
 	if user == nil {
